@@ -38,44 +38,41 @@ pipeline {
             }
         }
 
-        stage('Read Accuracy') {
+       stage('Read Accuracy') {
     steps {
         script {
             echo 'Reading accuracy from metrics.json...'
             def metrics = readJSON file: 'app/artifacts/metrics.json'
             echo "Raw metrics: ${metrics}"
-            env.CURRENT_ACCURACY = metrics['accuracy'] ? metrics['accuracy'].toString() : null
+            env.CURRENT_ACCURACY = "${metrics.accuracy}"
             echo "Current Accuracy: ${env.CURRENT_ACCURACY}"
         }
     }
 }
 
 
+
         stage('Compare Accuracy') {
-    steps {
-        script {
-            if (!env.CURRENT_ACCURACY) {
-                error "Current accuracy is null or missing in metrics.json"
-            }
-            withCredentials([string(credentialsId: 'best-accuracy', variable: 'STORED_ACCURACY')]) {
-                env.BEST_ACCURACY = STORED_ACCURACY ?: '0.0'
-                echo "Stored Best Accuracy: ${env.BEST_ACCURACY}"
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'best-accuracy', variable: 'STORED_ACCURACY')]) {
+                        env.BEST_ACCURACY = STORED_ACCURACY
+                        echo "Stored Best Accuracy: ${env.BEST_ACCURACY}"
 
-                def current = env.CURRENT_ACCURACY.toFloat()
-                def best = env.BEST_ACCURACY.toFloat()
+                        def current = env.CURRENT_ACCURACY.toFloat()
+                        def best = env.BEST_ACCURACY.toFloat()
 
-                if (current > best) {
-                    echo "New model is better (${current} > ${best})"
-                    env.SHOULD_BUILD = 'true'
-                } else {
-                    echo "New model is NOT better (${current} <= ${best})"
-                    env.SHOULD_BUILD = 'false'
+                        if (current > best) {
+                            echo "New model is better (${current} > ${best})"
+                            env.SHOULD_BUILD = 'true'
+                        } else {
+                            echo "New model is NOT better (${current} <= ${best})"
+                            env.SHOULD_BUILD = 'false'
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
 
         stage('Build Docker Image') {
             when {
